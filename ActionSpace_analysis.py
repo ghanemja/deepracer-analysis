@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.4.1
+#       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -52,8 +52,7 @@ import matplotlib.pyplot as plt
 # %matplotlib inline
 
 from deepracer.tracks import TrackIO, Track
-#from deepracer.tracks.track_utils import track_breakdown
-from deepracer.logs import CloudWatchLogs as cw, \
+from deepracer.logs import \
     SimulationLogsIO as slio, \
     PlottingUtils as pu,\
     AnalysisUtils as au   #, \
@@ -109,6 +108,8 @@ pu.plot_trackpoints(track)
 
 # + jupyter={"source_hidden": true}
 # AWS DeepRacer Console
+# fname = 'logs/sample-console-logs/logs/training/training-20220611230353-EHNgTNY2T9-77qXhqjBi6A-robomaker.log'
+
 #stream_name = 'sim-test' ## CHANGE This to your simulation application ID
 fname = 'logs/deepracer-%s.log' %stream_name  # The log will be downloaded into the specified path
 cw.download_log(fname, stream_prefix=stream_name)  # add force=True if you downloaded the file before but want to repeat
@@ -207,11 +208,11 @@ df[df['episode']==5520]
 
 # # Extract Action Space List from LOG file
 
-# + jupyter={"source_hidden": true}
+# + tags=[]
 # Extract Action Space List
 dgr_norm = 1 # for degrees
 
-if df['steer'].max()<2: dgr_norm = 57.6923 # for radians
+if df['steering_angle'].max()<2: dgr_norm = 57.6923 # for radians
 
 class act(object):
     def __init__(self, index=None, steer=None, throttle=None, rel_thr=None, color=([0,0,0])):
@@ -221,15 +222,15 @@ class act(object):
         self.rel_thr = rel_thr
         self.color = color
 
-maxThrottle = df.throttle.max()
+maxThrottle = df.speed.max()
 
-AS = df[df['steps'] != 0].groupby(['action'], as_index=False)['steer','throttle'].median()
+AS = df[df['steps'] != 0].groupby(['action'], as_index=False)['steering_angle','speed'].median()
 asl = [None] * AS.shape[0]
 for i in range(0,AS.shape[0]):
     j = AS.action[i].astype(int)
     #asl[AS.action[i].astype(int)] = [AS.action[i].astype(int), round(AS.steer[i]*dgr_norm,2), round(AS.throttle[i],2)]
-    asl[j] = act(j, round(AS.steer[i]*dgr_norm,2), round(AS.throttle[i],2))
-    asl[j].rel_thr = AS.throttle[i] / maxThrottle
+    asl[j] = act(j, round(AS.steering_angle[i]*dgr_norm,2), round(AS.speed[i],2))
+    asl[j].rel_thr = AS.speed[i] / maxThrottle
     
     cr = 8*max(0,np.sign(asl[j].steer))*abs(asl[j].steer)/255
     cg = (0+6*(30-abs(asl[j].steer)))/255
@@ -264,10 +265,10 @@ trkShiftY = int(trkSizeY - trkPlotYmax)
 ##########################################################
 # define some constants for Action Space graphs
 
-asPlotXmin = round(df.steer.min()*dgr_norm,2)
-asPlotXmax = round(df.steer.max()*dgr_norm,2)
-asPlotYmin = round(df.throttle.min(),2)
-asPlotYmax = round(df.throttle.max(),2)
+asPlotXmin = round(df.steering_angle.min()*dgr_norm,2)
+asPlotXmax = round(df.steering_angle.max()*dgr_norm,2)
+asPlotYmin = round(df.speed.min(),2)
+asPlotYmax = round(df.speed.max(),2)
 
 #df.throttle.min()
 #print(asPlotXmin,asPlotXmax,asPlotYmin,asPlotYmax)
@@ -319,14 +320,14 @@ def plot_4_hist(df, itr=-1,  E=-1):
             print('Histograms for all episodes:') 
     fig, axs = plt.subplots(2, 2, sharex='col',figsize=(14, 10), sharey='row',  gridspec_kw={'hspace': 0, 'wspace': 0})  
     (ax1, ax2), (ax3, ax4) = axs
-    ax3.hist2d(episode_data['steer']*(dgr_norm), episode_data['throttle'], bins=(63, 56),range=[[-31,31],[0,asMaxY]])
+    ax3.hist2d(episode_data['steering_angle']*(dgr_norm), episode_data['speed'], bins=(63, 56),range=[[-31,31],[0,asMaxY]])
     ax3.set(xlabel='Steering', ylabel='Speed',  xlim=(31,-31)) 
     ax2 = plt.subplot(222, polar=True)
     ax2.set_theta_zero_location("N")
-    ax2.hist2d(episode_data['steer']*(dgr_norm/57.6923), episode_data['throttle'], bins=(90, 23),range=[[-1.57,1.57],[0,asMaxY]])
+    ax2.hist2d(episode_data['steering_angle']*(dgr_norm/57.6923), episode_data['speed'], bins=(90, 23),range=[[-1.57,1.57],[0,asMaxY]])
         # ax2.hist(episode_data['action']*dgr_norm, bins=60)
-    ax1.hist(episode_data['steer']*dgr_norm, bins=60)
-    ax4.hist(episode_data['throttle'], bins=50, orientation="horizontal")# steer - throttle - actions
+    ax1.hist(episode_data['steering_angle']*dgr_norm, bins=60)
+    ax4.hist(episode_data['speed'], bins=50, orientation="horizontal")# steer - throttle - actions
     for ax in fig.get_axes():
         ax.label_outer()
         
@@ -345,7 +346,7 @@ def plot_polar_hist(df, itr=-1,  E=-1):
     fig2 = plt.figure(1, figsize=(7, 7))    
     bx = fig2.add_subplot(111, polar=True)
     bx.set_theta_zero_location("N")
-    bx.hist2d(episode_data['steer']*(dgr_norm/57.6923), episode_data['throttle'], bins=(90, 25),range=[[-1.57,1.57],[0,asMaxY]])
+    bx.hist2d(episode_data['steering_angle']*(dgr_norm/57.6923), episode_data['speed'], bins=(90, 25),range=[[-1.57,1.57],[0,asMaxY]])
        
 ## Ploting steps in the episodes with red dots
 def plot_episode_red(df, E): #, center_line, inner_border, outer_border):
@@ -380,21 +381,17 @@ def plot_episode_color(df, E): #, center_line, inner_border, outer_border):
 
 # # Action Space Visualization
 
-# + jupyter={"source_hidden": true}
 plot_index_map(asl)    
 # -
 
 # # Analysing data from all episodes
 
-# + jupyter={"source_hidden": true}
 tr_plot = pu.plot_track(df, track, value_field="reward") 
 
-# + jupyter={"source_hidden": true}
+# + tags=[]
 plot_4_hist(df)
 
-# + jupyter={"source_hidden": true}
 plot_polar_hist(df)
-# -
 
 #
 #
@@ -406,20 +403,16 @@ plot_polar_hist(df)
 
 # Set iteration id
 #itr = 12                      # iteration id
-itr=df['iteration'].max()     # last iteration
+itr=df['iteration'].max()-10     # last iteration
 
-# + jupyter={"source_hidden": true}
 for i in range((itr-1)*EPISODES_PER_ITERATION, (itr)*EPISODES_PER_ITERATION):
     plot_episode_red(df,i) #,l_inner_border, l_inner_border, l_outer_border)
 print('Iteration:',itr)    
 
-# + jupyter={"source_hidden": true}
 #plot_episode_as_hist(df, itr=25)  # specific iteration
 plot_4_hist(df, itr)  # last iteration
 
-# + jupyter={"source_hidden": true}
 plot_polar_hist(df, itr)
-# -
 
 #
 #
@@ -433,27 +426,21 @@ EPZ = 795
 # Plot Index Map to understand graph
 plot_index_map(asl)
 
-# + jupyter={"source_hidden": true}
 print("Every dot is one step. Dot size is proportional to the throttle")
 print("Colors: Green = Straight, Red = Steering Left, Blue = Steering Right")
 plot_episode_color(df,EPZ) #, l_inner_border, l_inner_border, l_outer_border) # arbitrary episode
 
-# + jupyter={"source_hidden": true}
 plot_4_hist(df, E = EPZ)
 
-# + jupyter={"source_hidden": true}
 plot_polar_hist(df, E = EPZ)
 
-# + jupyter={"source_hidden": true}
 #This shows a histogram of actions per waypoint. Will let you spot potentially problematic places
 episode = df[df['episode']==EPZ]
 episode[:-1].plot.bar(x='closest_waypoint', y='reward',figsize=(16, 6))
-# -
 
 # # Analyzing Actions
 # ## You can analyze all actions or only set of actions with indexes defined in setActions
 
-# + jupyter={"source_hidden": true}
 aslNum = len(asl)
 setActions = range(aslNum)     # show graphs for all Actions
 #setActions = (0,1,6,8,9)       # show graphs only for index set Actions
@@ -463,6 +450,5 @@ for i in setActions:
     print("\n\n Heatmap for action with index {}: steering: {}, throttle: {}".format(a.index, a.steer,a.throttle))
     tr_plot = pu.plot_track(df[df['action'] == a.index], track, value_field="reward") 
     plt.show()
-# -
 
 

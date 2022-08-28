@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.3.4
+#       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -60,10 +60,9 @@
 # Run the imports block below:
 
 # +
-
 from deepracer.tracks import TrackIO, Track
 
-from deepracer.logs import CloudWatchLogs as cw, \
+from deepracer.logs import \
     AnalysisUtils as au, \
     SimulationLogsIO as slio, \
     EvaluationUtils as eu, \
@@ -103,15 +102,14 @@ track.road_poly
 #
 # Side note: if you want to download evaluation logs from AWS DeepRacer Console, this will be a bit more tricky. Evaluation logs are grouped together with training logs in same group `/aws/robomaker/SimulationJobs` and there isn't an obvious way to recognise which ones they are. That said, in `Evaluation Run Analysis` section below you have the ability to download a single evaluation file.
 
-# +
 # For the purpose of generating the notebook in a reproducible way
 # logs download has been commented out.
 logs = [('logs/deepracer-eval-sim-sample.log', 'sim-sample')]
 
 # logs = cw.download_all_logs(
-#     'logs/deepracer-eval-', 
-#     '/aws/deepracer/leaderboard/SimulationJobs', 
-#     not_older_than="2019-07-01 07:00", 
+#     'logs/deepracer-eval-',
+#     '/aws/deepracer/leaderboard/SimulationJobs',
+#     not_older_than="2019-07-01 07:00",
 #     older_than="2019-07-01 12:00"
 # )
 # -
@@ -128,7 +126,7 @@ bulk = slio.load_a_list_of_logs(logs)
 # Side note: Evaluation/race logs contain a reward field but it's not connected to your reward. It is there most likely to ensure logs have consistent structure to make their parsing easier. The value appears to be dependand on distance of the car from the centre of the track. As such it provides no value and is not visualised in this notebook.
 
 # +
-simulation_agg = au.simulation_agg(bulk, 'stream', add_timestamp=True, is_eval=True)
+simulation_agg = au.simulation_agg(bulk, 'stream', is_eval=True)
 complete_ones = simulation_agg[simulation_agg['progress']==100]
 
 # This gives the warning about ptp method deprecation. The code looks as if np.ptp was used, I don't know how to fix it.
@@ -146,7 +144,7 @@ simulation_agg.nlargest(15, 'progress')
 complete_ones.nsmallest(15, 'time')
 
 # View ten most recent lap attempts
-simulation_agg.nlargest(10, 'timestamp')
+simulation_agg.nlargest(10, 'tstamp')
 
 # ## Plot all the evaluation laps
 #
@@ -174,7 +172,7 @@ lap_df = bulk[(bulk['episode']==0) & (bulk['stream']=='sim-sample')]
 
 # +
 lap_df.loc[:,'distance']=((lap_df['x'].shift(1)-lap_df['x']) ** 2 + (lap_df['y'].shift(1)-lap_df['y']) ** 2) ** 0.5
-lap_df.loc[:,'time']=lap_df['timestamp'].astype(float)-lap_df['timestamp'].shift(1).astype(float)
+lap_df.loc[:,'time']=lap_df['tstamp'].astype(float)-lap_df['tstamp'].shift(1).astype(float)
 lap_df.loc[:,'speed']=lap_df['distance']/(100*lap_df['time'])
 lap_df.loc[:,'acceleration']=(lap_df['distance']-lap_df['distance'].shift(1))/lap_df['time']
 lap_df.loc[:,'progress_delta']=lap_df['progress'].astype(float)-lap_df['progress'].shift(1).astype(float)
